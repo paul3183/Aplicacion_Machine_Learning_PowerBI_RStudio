@@ -1,0 +1,132 @@
+---
+title: "Prediccion_Default"
+author: "Paul Ruiz"
+date: "2024-03-17"
+output: html_document
+---
+
+#cargamos los datos:
+```{r}
+#data_Prediction_Default
+data_PD <- read.csv("C:/Users/PAUL/Desktop/Modelo_Regresion_Logistica_R+PowerBI/Recursos/Default_Clients.csv") 
+View(data_PD)
+
+modelo1 <- glm(default~educacion+sexo+edad+saldo, data_PD, family=binomial(link = "logit"))
+summary(modelo1)
+
+#modelo2 <- glm(default~., data_PD, family=binomial(link = "logit"))
+#summary(modelo2)
+#Nota: 
+#Usando todas las variables para la construcción del modelo tenemos una matriz de confusión no tan precisa como la del modelo1 líneas arriba, se hizo las pruebas con varias combinaciones de las variables y esa fue la mejor combinación para el modelo.
+```
+#Aumentaremos una variable ó columna, la predicción:
+```{r}
+data_PD$Predict_PD <- modelo1$fitted.values
+View(data_PD)
+```
+#Forma de calcular el Punto de corte y demás con InformationValue:
+```{r}
+#require(InformationValue)
+#PuntoCorte <- optimalCutoff(data_PD$default,data_PD$Predict_PD,otimiseFor="Both")
+#PuntoCorte
+#ObsCorrectos <- misClassError(data_PD$default, data_PD$Predict_PD, threshold = PuntoCorte)
+#ObsCorrectos
+#confusionMatrix(data_PD$default,data_PD$Predict_PD, threshold = PuntoCorte)
+```
+
+
+#1.- Enfoque alternativo utilizando el paquete pROC para encontrar un punto de corte óptimo:
+```{r setup, include=FALSE}
+#Instalación y carga del paquete pROC
+
+knitr::opts_chunk$set(echo = TRUE)
+# Instalar pROC si no está instalado
+if (!requireNamespace("pROC", quietly = TRUE)) {
+  install.packages("pROC")
+}
+# Cargar pROC
+library(pROC)
+```
+
+
+#2.- Calculando el umbral óptimo
+```{r}
+#Calcula la curva ROC y determina el umbral óptimo.
+roc_obj <- roc(response = data_PD$default, predictor = data_PD$Predict_PD)
+
+
+#Punto de corte óptimo utilizando el índice de Youden
+optimal_threshold <- coords(roc_obj, "best", ret="threshold")
+
+#El umbral óptimo es:
+print(optimal_threshold)
+```
+
+
+#3.- Calculando el error de clasificación:
+```{r}
+#Convirtiendo classified_predictions a un vector y
+#Aplicamos el umbral óptimo para obtener las predicciones clasificadas
+classified_predictions <- c(ifelse(data_PD$Predict_PD >= optimal_threshold, 1, 0))
+
+#Verificamos nuevamente la longitud y la clase de classified_predictions
+print(length(classified_predictions)) 
+print(class(classified_predictions))
+
+#Calculamos el error de clasificación y la precisión:
+misclass_error <- mean(classified_predictions != as.integer(data_PD$default))
+accuracy <- 1 - misclass_error
+
+#Imprimiendo la tasa de error y la precisión:
+print(paste("Error de Clasificación:", misclass_error))
+print(paste("Precisión:", accuracy))
+
+```
+
+```{r install-caret, include=FALSE}
+if (!requireNamespace("caret", quietly = TRUE)) {
+  install.packages("caret", repos = "https://cloud.r-project.org")
+}
+library(caret)
+
+```
+
+
+#4.- Construyendo la matriz de confusión
+```{r}
+
+#Generación Alternativa de classified_predictions:
+
+classified_predictions <- numeric(length(data_PD$Predict_PD))
+indices_positivos <- which(data_PD$Predict_PD >= optimal_threshold)
+classified_predictions[indices_positivos] <- 1
+
+#Verificamos la Longitud y Clase:
+
+print(length(classified_predictions))
+print(class(classified_predictions))
+
+#Creación de Matriz de Confusión:
+conf_matrix <- confusionMatrix(factor(classified_predictions), factor(data_PD$default))
+print(conf_matrix)
+```
+#Desarrollo de un Modelo Predictivo para la Probabilidad de Incumplimiento de Créditos y Visualización en Power BI:
+
+#En un proyecto integral para mejorar la gestión de riesgos financieros, combiné análisis estadístico avanzado con visualización de datos para predecir la probabilidad de incumplimiento de créditos. Utilizando R para el modelado estadístico y Power BI para la visualización, llevé a cabo un enfoque multifacético que incluyó:
+
+#Modelado Predictivo en R: 
+#1.- Inicié con la preparación y exploración de datos, seguido por la construcción de un modelo de regresión logística utilizando variables clave como educación, sexo, edad y saldo. Este proceso involucró la evaluación meticulosa de diferentes combinaciones de variables para optimizar la precisión y relevancia del modelo.
+
+#2.- Optimización de Umbrales y Evaluación de Rendimiento: A través del paquete pROC, determiné el umbral óptimo para equilibrar la sensibilidad y especificidad del modelo, validando su eficacia con una matriz de confusión.
+
+#3.- Integración con Power BI para Análisis Visual: Con el modelo afinado, exporté los resultados a Power BI, donde desarrollé dashboards interactivos que ofrecen insights detallados sobre la probabilidad de incumplimiento. Las visualizaciones incluyen:
+
+#3.1.-Análisis de saldo por grupo etario, educación y estado civil, contrastado con la probabilidad de incumplimiento.
+#3.2.-Segmentación de créditos por probabilidad alta de incumplimiento, estado de default, así como análisis de saldo en estas categorías.
+#3.3.-Desglose detallado por variables clave: probabilidad, educación, sexo y grupo etario.
+#3.4.-Estos paneles no solo destacan patrones críticos y correlaciones en los datos sino que también facilitan la identificación de segmentos de alto riesgo y oportunidades para intervenciones proactivas.
+
+#Conclusión y Valor Agregado
+#Este proyecto demuestra un enfoque holístico hacia la gestión de riesgos financieros, combinando análisis predictivo profundo con visualización de datos avanzada. La capacidad para traducir complejas predicciones estadísticas en visualizaciones claras y comprensibles en Power BI subraya mi compromiso con la toma de decisiones basada en datos y la comunicación efectiva de insights.
+
+#La implementación de este modelo y su visualización interactiva en Power BI no solo mejora la precisión en la identificación de potenciales incumplimientos sino que también ayuda para la toma de decisiones de los Analistas con herramientas para mitigar riesgos de manera efectiva, promoviendo así una gestión financiera más robusta y consciente.
